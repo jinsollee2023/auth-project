@@ -1,9 +1,10 @@
-import { AUTH_SIGNUP } from "@/components/constants/apiEndpoints";
 import { useToast } from "@/components/ui/use-toast";
-import { SignUpFormSchema } from "@/utils/formValidation";
+import { userStore } from "@/stores/userStore";
+import { SignUpFormSchema, loginFormSchema } from "@/utils/formValidation";
 import axiosInstance from "@/utils/httpClient";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AxiosError } from "axios";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -15,7 +16,47 @@ export type ServerErrorResponse = {
 const useAuthForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [nextButtonClicked, setNextButtonClicked] = useState(false);
+
+  const { setUser, setAccessToken, setRefreshToken } = userStore.getState();
   const { toast } = useToast();
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextParams = searchParams.get("next");
+
+  const loginForm = useForm<z.infer<typeof loginFormSchema>>({
+    resolver: zodResolver(loginFormSchema),
+    mode: "onChange",
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  const onSubmitLogin = async (values: z.infer<typeof loginFormSchema>) => {
+    setIsLoading(true);
+    try {
+      const { data } = await axiosInstance.post("/auth/login", values);
+      setUser(data.user);
+      setAccessToken(data.accessToken);
+      setRefreshToken(data.refreshToken);
+      toast({
+        variant: "green",
+        title: "로그인되었습니다.",
+        duration: 1000,
+      });
+      router.push(typeof nextParams === "string" ? nextParams : "/");
+    } catch (error) {
+      const axiosError = error as AxiosError<ServerErrorResponse>;
+      toast({
+        variant: "destructive",
+        title: axiosError.response?.data?.message,
+        duration: 1000,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const signUpForm = useForm<z.infer<typeof SignUpFormSchema>>({
     resolver: zodResolver(SignUpFormSchema),
@@ -84,12 +125,8 @@ const useAuthForm = () => {
     setIsLoading(true);
     if (values.password === values.confirmPassword) {
       try {
-        await axiosInstance.post(AUTH_SIGNUP, values);
-        toast({
-          variant: "green",
-          title: "회원가입에 성공하였습니다.",
-          duration: 1000,
-        });
+        await axiosInstance.post("/auth/signup", values);
+        await onSubmitLogin({ email: values.email, password: values.password });
       } catch (error) {
         const axiosError = error as AxiosError<ServerErrorResponse>;
         toast({
@@ -112,6 +149,8 @@ const useAuthForm = () => {
 
   return {
     isLoading,
+    loginForm,
+    onSubmitLogin,
     signUpForm,
     nextButtonHandler,
     nextButtonClicked,
