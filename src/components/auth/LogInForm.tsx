@@ -13,12 +13,14 @@ import { Input } from "@/components/ui/input";
 import useAuthForm from "@/hooks/usuAuthForm";
 
 const LoginForm = () => {
-  const { loginForm, onSubmitLogin, isLoading } = useAuthForm();
+  const { loginForm, isLoading, debouncedSubmitHandler } = useAuthForm();
 
   return (
     <Form {...loginForm}>
       <form
-        onSubmit={loginForm.handleSubmit(onSubmitLogin)}
+        onSubmit={loginForm.handleSubmit((values, e) => {
+          debouncedSubmitHandler(values, e, "login");
+        })}
         className="relative space-y-3 overflow-x-hidden"
       >
         <FormField

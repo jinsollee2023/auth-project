@@ -25,15 +25,18 @@ export const SignUpForm = () => {
     signUpForm,
     nextButtonHandler,
     nextButtonClicked,
-    onSubmitSignUp,
+    setNextButtonClicked,
     keyDownHandler,
     preventEnterKeySubmission,
+    debouncedSubmitHandler,
   } = useAuthForm();
 
   return (
     <Form {...signUpForm}>
       <form
-        onSubmit={signUpForm.handleSubmit(onSubmitSignUp)}
+        onSubmit={signUpForm.handleSubmit((values, e) =>
+          debouncedSubmitHandler(values, e, "signup")
+        )}
         className="relative space-y-3 overflow-x-hidden"
         onKeyDown={preventEnterKeySubmission}
       >
@@ -50,7 +53,11 @@ export const SignUpForm = () => {
                 <FormItem>
                   <FormLabel>이름</FormLabel>
                   <FormControl>
-                    <Input placeholder="홍길동" {...field} />
+                    <Input
+                      placeholder="홍길동"
+                      {...field}
+                      onFocus={() => setNextButtonClicked(false)}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -2,7 +2,11 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import HeaderButtons from "./HeaderButtons";
+import dynamic from "next/dynamic";
+
+const HeaderButtons = dynamic(() => import("./HeaderButtons"), {
+  ssr: false,
+});
 
 const Header = () => {
   const router = useRouter();

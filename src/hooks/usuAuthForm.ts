@@ -5,9 +5,10 @@ import axiosInstance from "@/utils/httpClient";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AxiosError } from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import _ from "lodash";
 
 export type ServerErrorResponse = {
   message: string;
@@ -33,31 +34,6 @@ const useAuthForm = () => {
     },
   });
 
-  const onSubmitLogin = async (values: z.infer<typeof loginFormSchema>) => {
-    setIsLoading(true);
-    try {
-      const { data } = await axiosInstance.post("/auth/login", values);
-      setUser(data.user);
-      setAccessToken(data.accessToken);
-      setRefreshToken(data.refreshToken);
-      toast({
-        variant: "green",
-        title: "로그인되었습니다.",
-        duration: 1000,
-      });
-      router.push(typeof nextParams === "string" ? nextParams : "/");
-    } catch (error) {
-      const axiosError = error as AxiosError<ServerErrorResponse>;
-      toast({
-        variant: "destructive",
-        title: axiosError.response?.data?.message,
-        duration: 1000,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const signUpForm = useForm<z.infer<typeof SignUpFormSchema>>({
     resolver: zodResolver(SignUpFormSchema),
     mode: "onChange",
@@ -70,56 +46,20 @@ const useAuthForm = () => {
     },
   });
 
-  const nextButtonHandler = async (e: any) => {
-    const validateExceptPassword = await signUpForm.trigger([
-      "name",
-      "email",
-      "phone",
-      "role",
-    ]);
-    if (validateExceptPassword) {
-      setNextButtonClicked(!nextButtonClicked);
-    }
-  };
-
-  const keyDownHandler = async (e: any) => {
-    const { name } = e.target;
-    const validateExceptPassword = await signUpForm.trigger([
-      "name",
-      "email",
-      "phone",
-      "role",
-    ]);
-
-    if (name === "role" && !validateExceptPassword) {
-      if (e.key === "Tab" && !e.shiftKey) {
-        e.preventDefault();
+  const debouncedSubmitHandler = useCallback(
+    _.debounce((values: any, e: any, type: string) => {
+      if (type === "login") {
+        onSubmitLogin(values);
+      } else if (type === "signup") {
+        onSubmitSignUp(values, e);
       }
-    } else if (name === "role" && validateExceptPassword) {
-      if (e.key === "Tab" && !e.shiftKey) {
-        setNextButtonClicked(true);
-      }
-    } else if (name === "password" && e.key === "Tab" && e.shiftKey) {
-      setNextButtonClicked(false);
-    }
-  };
-
-  const preventEnterKeySubmission = async (e: any) => {
-    const validateForm = await signUpForm.trigger([
-      "name",
-      "email",
-      "phone",
-      "role",
-      "password",
-    ]);
-    if (e.key === "Enter" && !validateForm) {
-      e.preventDefault();
-    }
-  };
+    }, 1000),
+    []
+  );
 
   const onSubmitSignUp = async (
     values: z.infer<typeof SignUpFormSchema>,
-    e: any
+    e: React.FormEvent<HTMLFormElement>
   ) => {
     e.preventDefault();
     setIsLoading(true);
@@ -147,6 +87,72 @@ const useAuthForm = () => {
     }
   };
 
+  const onSubmitLogin = async (values: z.infer<typeof loginFormSchema>) => {
+    setIsLoading(true);
+    try {
+      const { data } = await axiosInstance.post("/auth/login", values);
+      setUser(data.user);
+      setAccessToken(data.accessToken);
+      setRefreshToken(data.refreshToken);
+      toast({
+        variant: "green",
+        title: "로그인되었습니다.",
+        duration: 1000,
+      });
+      router.push(typeof nextParams === "string" ? nextParams : "/");
+    } catch (error) {
+      const axiosError = error as AxiosError<ServerErrorResponse>;
+      toast({
+        variant: "destructive",
+        title: axiosError.response?.data?.message,
+        duration: 1000,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const validateExceptPassword = async () => {
+    return await signUpForm.trigger(["name", "email", "phone", "role"]);
+  };
+
+  const nextButtonHandler = async () => {
+    const isValid = await validateExceptPassword();
+    if (isValid) {
+      setNextButtonClicked(!nextButtonClicked);
+    }
+  };
+
+  const keyDownHandler = async (e: any) => {
+    const { name } = e.target;
+    const isValid = await validateExceptPassword();
+
+    if (name === "role" && !isValid) {
+      if (e.key === "Tab" && !e.shiftKey) {
+        e.preventDefault();
+      }
+    } else if (name === "role" && isValid) {
+      if (e.key === "Tab" && !e.shiftKey) {
+        setNextButtonClicked(true);
+      }
+    } else if (name === "password" && e.key === "Tab" && e.shiftKey) {
+      setNextButtonClicked(false);
+    }
+  };
+
+  const preventEnterKeySubmission = async (e: any) => {
+    const validateForm = await signUpForm.trigger([
+      "name",
+      "email",
+      "phone",
+      "role",
+      "password",
+    ]);
+    if (e.key === "Enter" && !validateForm) {
+      e.preventDefault();
+    }
+  };
+
   return {
     isLoading,
     loginForm,
@@ -154,9 +160,11 @@ const useAuthForm = () => {
     signUpForm,
     nextButtonHandler,
     nextButtonClicked,
+    setNextButtonClicked,
     onSubmitSignUp,
     keyDownHandler,
     preventEnterKeySubmission,
+    debouncedSubmitHandler,
   };
 };
 

@@ -8,8 +8,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { accessAlert } from "@/utils/accessAlert";
 
 const page = () => {
+  accessAlert();
   return (
     <Card className="w-[390px] absolute -translate-x-1/2 -translate-y-1/2 top-1/2 left-1/2">
       <CardHeader>
